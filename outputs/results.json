@@ -1,0 +1,108 @@
+{
+    "stage4_benchmarks": [
+        {
+            "Model": "Dummy (Most Frequent)",
+            "F1-Score": "0.000 \u00b1 0.000",
+            "ROC-AUC": "0.500 \u00b1 0.000",
+            "Precision": "0.000 \u00b1 0.000",
+            "Recall": "0.000 \u00b1 0.000",
+            "_f1_mean": 0.0,
+            "_auc_mean": 0.5
+        },
+        {
+            "Model": "Logistic Regression",
+            "F1-Score": "0.000 \u00b1 0.000",
+            "ROC-AUC": "0.529 \u00b1 0.015",
+            "Precision": "0.000 \u00b1 0.000",
+            "Recall": "0.000 \u00b1 0.000",
+            "_f1_mean": 0.0,
+            "_auc_mean": 0.5294820992852188
+        },
+        {
+            "Model": "Random Forest",
+            "F1-Score": "0.000 \u00b1 0.000",
+            "ROC-AUC": "0.522 \u00b1 0.020",
+            "Precision": "0.000 \u00b1 0.000",
+            "Recall": "0.000 \u00b1 0.000",
+            "_f1_mean": 0.0,
+            "_auc_mean": 0.5218501736830459
+        },
+        {
+            "Model": "XGBoost Classifier",
+            "F1-Score": "0.054 \u00b1 0.022",
+            "ROC-AUC": "0.522 \u00b1 0.029",
+            "Precision": "0.380 \u00b1 0.095",
+            "Recall": "0.029 \u00b1 0.013",
+            "_f1_mean": 0.053807809098167216,
+            "_auc_mean": 0.5221646669725982
+        }
+    ],
+    "stage5_nested_cv": {
+        "nested_f1_mean": 0.16178116713781693,
+        "nested_f1_std": 0.03468339800614239,
+        "nested_auc_mean": 0.5173328922571073,
+        "nested_auc_std": 0.03619415998945304,
+        "best_params": {
+            "classifier__learning_rate": "0.08",
+            "classifier__max_depth": "5",
+            "classifier__n_estimators": "120",
+            "classifier__subsample": "0.8"
+        },
+        "best_inner_f1": 0.16117835414665385
+    },
+    "stage6_ablation": [
+        {
+            "Experiment": "1. Full Model (All Features + Scaling)",
+            "Num_Features": 8,
+            "Scaling": "StandardScaler",
+            "CV_F1": "0.1618 \u00b1 0.0347",
+            "CV_ROC_AUC": "0.5173 \u00b1 0.0362",
+            "_f1_val": 0.16178116713781693,
+            "_auc_val": 0.5173328922571073
+        },
+        {
+            "Experiment": "2. Without SMC Features (Price Action / Tech Only)",
+            "Num_Features": 4,
+            "Scaling": "StandardScaler",
+            "CV_F1": "0.1792 \u00b1 0.0385",
+            "CV_ROC_AUC": "0.5303 \u00b1 0.0401",
+            "_f1_val": 0.1791584176347682,
+            "_auc_val": 0.5302879693117875
+        },
+        {
+            "Experiment": "3. Without StandardScaler (Raw Normalized Scale)",
+            "Num_Features": 8,
+            "Scaling": "None",
+            "CV_F1": "0.1618 \u00b1 0.0347",
+            "CV_ROC_AUC": "0.5173 \u00b1 0.0362",
+            "_f1_val": 0.16178116713781693,
+            "_auc_val": 0.5173473274790489
+        },
+        {
+            "Experiment": "4. Without Technical Context (SMC Only)",
+            "Num_Features": 5,
+            "Scaling": "StandardScaler",
+            "CV_F1": "0.0925 \u00b1 0.0220",
+            "CV_ROC_AUC": "0.5133 \u00b1 0.0232",
+            "_f1_val": 0.0925006852713706,
+            "_auc_val": 0.513324021724118
+        }
+    ],
+    "stage7_final_test": {
+        "test_f1": 0.15444015444015444,
+        "test_roc_auc": 0.5498846597462514,
+        "test_precision": 0.36363636363636365,
+        "test_recall": 0.09803921568627451,
+        "confusion_matrix": [
+            [
+                390,
+                35
+            ],
+            [
+                184,
+                20
+            ]
+        ],
+        "classification_report": "                precision    recall  f1-score   support\n\n0: Avoid Trade     0.6794    0.9176    0.7808       425\n 1: Take Trade     0.3636    0.0980    0.1544       204\n\n      accuracy                         0.6518       629\n     macro avg     0.5215    0.5078    0.4676       629\n  weighted avg     0.5770    0.6518    0.5776       629\n"
+    }
+}

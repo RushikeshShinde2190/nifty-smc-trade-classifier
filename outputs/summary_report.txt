@@ -1,0 +1,45 @@
+SMART MONEY CONCEPTS (SMC) TRADE SETUP CLASSIFIER FOR NIFTY 50
+8-STAGE MACHINE LEARNING EVALUATION REPORT
+================================================================================
+
+1. DATASET OVERVIEW
+  Total Clean Candles:     3143
+  Class 0 (Avoid Trade):   2125 (67.61%)
+  Class 1 (Take Trade):    1018 (32.39%)
+
+2. BASELINE & MODEL BENCHMARKING (15-Fold Repeated Stratified CV)
+                Model      F1-Score       ROC-AUC     Precision        Recall
+Dummy (Most Frequent) 0.000 ± 0.000 0.500 ± 0.000 0.000 ± 0.000 0.000 ± 0.000
+  Logistic Regression 0.000 ± 0.000 0.529 ± 0.015 0.000 ± 0.000 0.000 ± 0.000
+        Random Forest 0.000 ± 0.000 0.522 ± 0.020 0.000 ± 0.000 0.000 ± 0.000
+   XGBoost Classifier 0.054 ± 0.022 0.522 ± 0.029 0.380 ± 0.095 0.029 ± 0.013
+
+3. NESTED CROSS-VALIDATION TUNING
+  Outer CV F1:             0.1618 ± 0.0347
+  Outer CV ROC-AUC:        0.5173 ± 0.0362
+  Best Parameters:         {'classifier__learning_rate': '0.08', 'classifier__max_depth': '5', 'classifier__n_estimators': '120', 'classifier__subsample': '0.8'}
+
+4. ABLATION STUDY
+                                        Experiment  Num_Features        Scaling           CV_F1      CV_ROC_AUC
+            1. Full Model (All Features + Scaling)             8 StandardScaler 0.1618 ± 0.0347 0.5173 ± 0.0362
+2. Without SMC Features (Price Action / Tech Only)             4 StandardScaler 0.1792 ± 0.0385 0.5303 ± 0.0401
+  3. Without StandardScaler (Raw Normalized Scale)             8           None 0.1618 ± 0.0347 0.5173 ± 0.0362
+           4. Without Technical Context (SMC Only)             5 StandardScaler 0.0925 ± 0.0220 0.5133 ± 0.0232
+
+5. FINAL TEST EVALUATION (Held-out Set)
+  Test F1-Score:           0.1544
+  Test ROC-AUC:            0.5499
+  Test Precision:          0.3636
+  Test Recall:             0.0980
+
+Classification Report:
+                precision    recall  f1-score   support
+
+0: Avoid Trade     0.6794    0.9176    0.7808       425
+ 1: Take Trade     0.3636    0.0980    0.1544       204
+
+      accuracy                         0.6518       629
+     macro avg     0.5215    0.5078    0.4676       629
+  weighted avg     0.5770    0.6518    0.5776       629
+
+================================================================================

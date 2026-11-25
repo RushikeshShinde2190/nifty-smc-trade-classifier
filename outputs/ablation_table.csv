@@ -1,0 +1,5 @@
+Experiment,Num_Features,Scaling,CV_F1,CV_ROC_AUC,_f1_val,_auc_val
+1. Full Model (All Features + Scaling),8,StandardScaler,0.1618 ± 0.0347,0.5173 ± 0.0362,0.16178116713781693,0.5173328922571073
+2. Without SMC Features (Price Action / Tech Only),4,StandardScaler,0.1792 ± 0.0385,0.5303 ± 0.0401,0.1791584176347682,0.5302879693117875
+3. Without StandardScaler (Raw Normalized Scale),8,None,0.1618 ± 0.0347,0.5173 ± 0.0362,0.16178116713781693,0.5173473274790489
+4. Without Technical Context (SMC Only),5,StandardScaler,0.0925 ± 0.0220,0.5133 ± 0.0232,0.0925006852713706,0.513324021724118
