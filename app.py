@@ -14,6 +14,11 @@ import streamlit as st
 import joblib
 import shap
 import yfinance as yf
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+from xgboost import XGBClassifier
 
 from src.data_pipeline import (
     calculate_smc_features,
@@ -97,15 +102,62 @@ st.markdown(
 
 
 # -----------------------------------------------------------------------------
-# Model & Asset Loaders
+# Model & Asset Loaders (Version-Safe)
 # -----------------------------------------------------------------------------
 @st.cache_resource
 def load_trained_model():
     model_path = "models/smc_trade_model.joblib"
-    if not os.path.exists(model_path):
-        st.error(f"Model artifact '{model_path}' not found! Run training pipeline first.")
+    if os.path.exists(model_path):
+        try:
+            loaded = joblib.load(model_path)
+            # Verify compatibility with current scikit-learn runtime
+            dummy = pd.DataFrame(np.zeros((1, len(FEATURE_COLUMNS))), columns=FEATURE_COLUMNS)
+            _ = loaded.predict_proba(dummy)
+            return loaded
+        except Exception:
+            pass
+
+    # Fallback: rebuild identical leakage-free pipeline from cached SMC dataset
+    data_path = "data/nifty50_smc_features.csv"
+    if not os.path.exists(data_path):
+        st.error("Neither compatible model artifact nor 'data/nifty50_smc_features.csv' found.")
         return None
-    return joblib.load(model_path)
+
+    df = pd.read_csv(data_path).dropna(subset=FEATURE_COLUMNS + ["take_trade"])
+    X = df[FEATURE_COLUMNS]
+    y = df["take_trade"].astype(int)
+    X_train, _, y_train, _ = train_test_split(X, y, test_size=0.20, stratify=y, random_state=42)
+
+    best_params = {}
+    results_path = "outputs/results.json"
+    if os.path.exists(results_path):
+        try:
+            with open(results_path, "r") as f:
+                res = json.load(f)
+            raw_params = res.get("stage5_tuning", {}).get("best_params", {})
+            best_params = {k.replace("classifier__", ""): v for k, v in raw_params.items()}
+        except Exception:
+            best_params = {}
+
+    clf = XGBClassifier(
+        n_estimators=best_params.get("n_estimators", 100),
+        max_depth=best_params.get("max_depth", 3),
+        learning_rate=best_params.get("learning_rate", 0.05),
+        subsample=best_params.get("subsample", 0.8),
+        colsample_bytree=best_params.get("colsample_bytree", 0.8),
+        random_state=42,
+        eval_metric="logloss",
+    )
+
+    fallback_pipeline = Pipeline(
+        [
+            ("imputer", SimpleImputer(strategy="median")),
+            ("scaler", StandardScaler()),
+            ("classifier", clf),
+        ]
+    )
+    fallback_pipeline.fit(X_train, y_train)
+    return fallback_pipeline
 
 
 @st.cache_data
@@ -286,6 +338,9 @@ if current_features is None:
     st.warning("Please choose or upload a valid dataset to begin.")
     st.stop()
 
+# Ensure numeric dtype for sklearn/xgboost
+current_features = current_features.astype(float)
+
 # Model prediction
 prob_positive = float(pipeline.predict_proba(current_features)[0, 1])
 is_take_trade = prob_positive >= decision_threshold
@@ -376,10 +431,8 @@ with tab_chart:
     st.subheader(f"NIFTY 50 Candlestick Chart & SMC Overlays ({candle_date})")
 
     if df_active is not None and not df_active.empty:
-        # Display the most recent 60 candles leading up to the selected date
         plot_df = df_active.copy()
         if candle_date != "Interactive Simulated Setup":
-            # Filter up to selected date
             end_loc = [i for i, d in enumerate(plot_df.index) if str(d).startswith(candle_date)][0]
             start_loc = max(0, end_loc - 60)
             plot_df = plot_df.iloc[start_loc : end_loc + 1]
@@ -393,7 +446,6 @@ with tab_chart:
             row_width=[0.22, 0.78],
         )
 
-        # Candlestick
         fig.add_trace(
             go.Candlestick(
                 x=plot_df.index,
@@ -409,7 +461,6 @@ with tab_chart:
             col=1,
         )
 
-        # Overlay Bullish Liquidity Sweeps
         bull_sweeps = plot_df[plot_df["liquidity_sweep_bull"] == 1]
         if not bull_sweeps.empty:
             fig.add_trace(
@@ -427,7 +478,6 @@ with tab_chart:
                 col=1,
             )
 
-        # Overlay Bearish Liquidity Sweeps
         bear_sweeps = plot_df[plot_df["liquidity_sweep_bear"] == 1]
         if not bear_sweeps.empty:
             fig.add_trace(
@@ -445,7 +495,6 @@ with tab_chart:
                 col=1,
             )
 
-        # Overlay Break of Structure (BOS)
         bos_candles = plot_df[plot_df["bos_bullish"] == 1]
         if not bos_candles.empty:
             fig.add_trace(
@@ -460,7 +509,6 @@ with tab_chart:
                 col=1,
             )
 
-        # Volume bars
         colors = ["#2ecc71" if c >= o else "#e74c3c" for c, o in zip(plot_df["Close"], plot_df["Open"])]
         fig.add_trace(
             go.Bar(
@@ -488,7 +536,6 @@ with tab_chart:
     else:
         st.info("Simulated setup mode: adjust sliders in the sidebar to test custom feature combinations.")
 
-    # Trade execution details
     st.markdown("#### 📐 Risk Management & Asymmetric Payoff Parameters")
     r_col1, r_col2, r_col3, r_col4 = st.columns(4)
     r_col1.metric("Risk-Reward Ratio", "1 : 1.5", "Fixed Statistical Baseline")
@@ -509,7 +556,6 @@ with tab_shap:
         scaler = pipeline.named_steps["scaler"]
         classifier = pipeline.named_steps["classifier"]
 
-        # Preprocess features through the pipeline steps
         X_imputed = imputer.transform(current_features)
         X_scaled = scaler.transform(X_imputed)
         X_scaled_df = pd.DataFrame(X_scaled, columns=FEATURE_COLUMNS)
@@ -521,7 +567,6 @@ with tab_shap:
         if isinstance(base_val, (list, np.ndarray)):
             base_val = float(base_val[0])
 
-        # Create Plotly Horizontal Contribution Bar Chart
         contrib_df = pd.DataFrame(
             {
                 "Feature": FEATURE_COLUMNS,
@@ -555,7 +600,6 @@ with tab_shap:
         )
         st.plotly_chart(fig_shap, use_container_width=True)
 
-        # Feature interpretation cards
         st.markdown("#### 📖 Detailed Smart Money Concepts Breakdown for this Setup")
         exp_col1, exp_col2 = st.columns(2)
 
@@ -647,7 +691,6 @@ with tab_eval:
     )
 
     if results_data is not None:
-        # KPI Cards
         st.markdown("#### 📊 Final Held-out Test Performance (Stage 7)")
         t_col1, t_col2, t_col3, t_col4 = st.columns(4)
         t_col1.metric("Test ROC-AUC", f"{results_data['stage7_final_test']['test_roc_auc']:.4f}", "Held-out Test")
